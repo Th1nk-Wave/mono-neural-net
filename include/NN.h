@@ -1,6 +1,8 @@
 #ifndef __NN_H_
 #define __NN_H_
 
+#include "RNG.h"
+
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
@@ -94,6 +96,7 @@ void NN_trainer_apply(NN_trainer *trainer, unsigned int batch_size);
 void NN_processor_process(NN_processor* processor, float* in, float* out);
 
 // utility functions
+void NN_network_randomise(NN_network* network, float weight_min, float weight_max, float bias_min, float bias_max);
 float NN_trainer_loss(NN_trainer* trainer, float* desired);
 void NN_network_save_to_file(NN_network* network, char* filepath);
 

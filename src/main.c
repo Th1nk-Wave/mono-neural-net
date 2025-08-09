@@ -53,18 +53,7 @@ void main() {
     NN_network* net = NN_network_init(neurons_per_layer, 2);
     NN_trainer* trainer = NN_trainer_init(net, learning_settings, use_settings, "cpu1");
     
-    // randomize weights + biases
-    for (unsigned int l = 0; l < net->layers - 1; l++) {
-        for (unsigned int i = 0; i < net->neurons_per_layer[l]; i++) {
-            for (unsigned int j = 0; j < net->neurons_per_layer[l + 1]; j++) {
-                net->weights[l][i][j] = random_float_range(RANDOM_INIT_MIN, RANDOM_INIT_MAX);
-            }
-        }
-        for (unsigned int j = 0; j < net->neurons_per_layer[l + 1]; j++) {
-            //net->bias[l][j] = 0; // biases often initialized to zero, but random is also fine
-            net->bias[l][j] = random_float_range(RANDOM_INIT_MIN, RANDOM_INIT_MAX); 
-        }
-    }
+    NN_network_randomise(net, RANDOM_INIT_MIN, RANDOM_INIT_MAX, RANDOM_INIT_MIN, RANDOM_INIT_MAX);
 
     // train
     unsigned int batch_size = 8;

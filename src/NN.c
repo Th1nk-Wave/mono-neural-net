@@ -156,6 +156,20 @@ void NN_network_free(NN_network *net) {
     #endif
 }
 
+void NN_network_randomise(NN_network *net, float weight_min, float weight_max, float bias_min, float bias_max) {
+    // randomize weights + biases
+    for (unsigned int l = 0; l < net->layers - 1; l++) {
+        for (unsigned int i = 0; i < net->neurons_per_layer[l]; i++) {
+            for (unsigned int j = 0; j < net->neurons_per_layer[l + 1]; j++) {
+                net->weights[l][i][j] = random_float_range(weight_min, weight_max);
+            }
+        }
+        for (unsigned int j = 0; j < net->neurons_per_layer[l + 1]; j++) {
+            //net->bias[l][j] = 0; // biases often initialized to zero, but random is also fine
+            net->bias[l][j] = random_float_range(bias_min, bias_max); 
+        }
+    }
+}
 
 NN_trainer* NN_trainer_init(NN_network* network, NN_learning_settings* learning_settings, NN_use_settings* use_settings, char *device_name) {
     unsigned int _size = strlen(device_name) + 1;

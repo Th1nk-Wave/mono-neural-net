@@ -6,7 +6,7 @@
 #define min(a,b) (((a)<(b))?(a):(b))
 #define max(a,b) (((a)>(b))?(a):(b))
 #define clamp(a,x,b) (((x)<(a))?(a):((b)<(x))?(b):(x))
-#define abs(x)   (((x)<(0))?(-x):(x))
+//#define abs(x)   (((x)<(0))?(-x):(x))
 
 unsigned int random_uint();
 float random_float();
