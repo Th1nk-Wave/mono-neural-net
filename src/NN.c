@@ -1,8 +1,10 @@
 #include "NN.h"
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ucontext.h>
 
 #if NN_DEBUG_PRINT
 #if defined(__linux__)
@@ -507,128 +509,150 @@ float NN_trainer_loss(NN_trainer* trainer, float* desired) {
     return loss / out_n;
 }
 
-/* OLD CODE
+int NN_network_save_to_file(NN_network *net, char *filepath) {
+    FILE *f = fopen(filepath, "wb");
+    if (!f) return -1;
 
+    uint16_t version = NN_FILE_VERSION;
+    uint8_t activation_id = 0;
 
-NN_layer NN_layer_init(float* weights, float* bias, unsigned int size) {
-    return (NN_layer){.weights = weights, .bias = bias, .size = size};
-}
-void NN_layer_destroy(NN_layer* layer) {
-    free(layer->weights);
-    free(layer->bias);
-    free(layer);
-}
+    if (fwrite(&version, sizeof(uint16_t), 1, f) != 1) goto error;                                      // [2 byte] version
+    if (fwrite(&activation_id, sizeof(uint8_t), 1, f) != 1) goto error;                                 // [1 byte] activation id 
+    if (fwrite(&net->layers, sizeof(uint32_t), 1, f) != 1) goto error;                                  // [4 byte] layers
+    if (fwrite(net->neurons_per_layer, sizeof(uint32_t), net->layers, f) != net->layers) goto error;    // [4 * layers byte] neurons_per_layer
 
-void NN_layer_process(float *input, NN_layer *layer1, NN_layer *layer2, float *output) {
-    printf("layer...\n");
-    for (unsigned int neuron = 0; neuron < layer1->size; neuron++) {
-        printf("neuron(%i)\n",neuron);
-        printf("    -bias: %f\n",layer1->bias[neuron]);
-        printf("    -weights:\n");
-        for (unsigned int weight = 0; weight < layer2->size; weight++) {
-            printf("        -%f\n",layer1->weights[neuron*layer1->size + weight]);
-            output[weight] += (input[neuron] * layer1->weights[neuron*layer1->size + weight]) + layer1->bias[neuron];
-        }
-    }
-}
-
-
-NN_network NN_network_init(NN_layer* layers, unsigned int n_layers, unsigned int n_neurons) {
-    return (NN_network){.layers = layers, .n_layers = n_layers, .n_neurons = n_neurons};
-}
-void NN_network_destroy(NN_network* network) {
-    for (unsigned int layer = 0; layer < network->n_layers; layer++) {
-        NN_layer_destroy(&network->layers[layer]);
-    }
-    free(network->layers);
-    free(network);
-}
-
-
-float* NN_network_process(NN_network* network, float* output, float* input) {
-    for (unsigned int layer = 0; layer < network->n_layers-1; layer++) {
-        memset(output, 0, sizeof(float) * network->n_neurons);
-        NN_layer_process(input, &network->layers[layer], &network->layers[layer+1], output);
-        float *tmp = input;
-        input = output;
-        output = tmp;
-    }
-    float *tmp = input;
-    input = output;
-    output = tmp;
-    return output;
-}
-
-float* NN_network_forward(NN_network* network, float* output, float* input) {
-    float* intermediates = malloc(sizeof(float) * network->n_layers * network->n_neurons);
-    float* input_copy = malloc(sizeof(float) * network->n_neurons);
-    for (int i = 0; i < network->n_neurons; i++) {
-        input_copy[i] = input[i];
-    }
-    for (unsigned int layer = 0; layer < network->n_layers-1; layer++) {
-        memset(output, 0, sizeof(float) * network->n_neurons);
-        NN_layer_process(input_copy, &network->layers[layer], &network->layers[layer+1], output);
-
-        // copy output into intermediate
-        for (unsigned int i = 0; i < network->n_neurons; i++) {
-            intermediates[layer*network->n_layers + i] = output[i];
-        }
-
-        float *tmp = input_copy;
-        input_copy = output;
-        output = tmp;
-    }
-    float *tmp = input_copy;
-    input_copy = output;
-    output = tmp;
-    free(input_copy);
-    return intermediates;
-}
-
-void NN_network_backprop(NN_network *network, float *real_output, float *desired_output, float* intermediates, float learning_rate) {
-    float* deltas = malloc(sizeof(float) * network->n_neurons * network->n_layers);
-
-    // output layer error
-    for (unsigned int real_data_idx = 0; real_data_idx < network->n_neurons; real_data_idx++) {
-        float error = desired_output[real_data_idx] - desired_output[real_data_idx];
-        float error_delta = error * real_output[real_data_idx] * (1-real_output[real_data_idx]);
-        deltas[(network->n_layers-1)*network->n_layers +real_data_idx] = error_delta;
-    }
-
-    // hidden layer error
-    for (unsigned int layer = network->n_layers-2; layer > 0; layer--) {
-        for (unsigned int h_neuron = 0; h_neuron < network->n_neurons; h_neuron++) {
-            float h_error = 0;
-            for (unsigned int h_conn = 0; h_conn < network->n_neurons; h_conn++) {
-                h_error += network->layers[layer+1].weights[h_neuron*network->layers[layer+1].size + h_conn] * deltas[(layer+1) * network->n_layers + h_conn];
-            }
-            deltas[layer*network->n_layers + h_neuron] = h_error * deltas[(layer+1) * network->n_layers + h_neuron] * (1-deltas[(layer+1) * network->n_layers + h_neuron]);
+    // weights
+    for (unsigned int l = 0; l < net->layers - 1; l++) {
+        unsigned int in_count  = net->neurons_per_layer[l];
+        unsigned int out_count = net->neurons_per_layer[l + 1];
+        for (unsigned int i = 0; i < in_count; i++) {
+            if (fwrite(net->weights[l][i], sizeof(float), out_count, f) != out_count) goto error;
         }
     }
 
-    printf("updating network...\n");
-    // update network
-    for (unsigned int layer = 0; layer < network->n_layers-1; layer++) {
-        for (unsigned int neuron = 0; neuron < network->n_neurons; neuron++) {
-            // update weights
-            for (unsigned int weight = 0; weight < network->n_neurons; weight++) {
-                float delta_weight = deltas[(layer+1) * network->n_layers + weight] * intermediates[layer*network->n_layers + neuron];
-                network->layers[layer].weights[neuron*network->layers[layer].size + weight] -= learning_rate * delta_weight;
-            }
+    // biases
+    for (unsigned int l = 0; l < net->layers - 1; l++) {
+        unsigned int out_count = net->neurons_per_layer[l + 1];
+        if (fwrite(net->bias[l], sizeof(float), out_count, f) != out_count) goto error;
+    }
 
-            // update bias
-            float delta_bias = deltas[(layer+1) * network->n_layers + neuron];
-            network->layers[layer].bias[neuron] -= learning_rate * delta_bias;
+    fclose(f);
+    return 0;
+
+error:
+    fclose(f);
+    return -1;
+}
+
+NN_network* NN_network_init_from_file(char *filepath) {
+    FILE *f = fopen(filepath, "rb");
+    if (!f) return NULL;
+
+    uint16_t version;
+    uint8_t activation_id;
+    uint32_t layers;
+
+    // version check
+    if (fread(&version, sizeof(uint16_t), 1, f) != 1) goto error;       // [2 byte] version
+    if (version != NN_FILE_VERSION) {
+        fprintf(stderr, "unsupported .net file version: %u\n", version);
+        goto error;
+    }
+
+    if (fread(&activation_id, sizeof(uint8_t), 1, f) != 1) goto error;  // [1 byte] activation id
+    if (fread(&layers, sizeof(uint32_t), 1, f) != 1) goto error;        // [4 byte] layers
+
+    // neruons_per_layer
+    unsigned int* neurons_per_layer = malloc(sizeof(uint32_t) * layers);
+    if (!neurons_per_layer) goto error;
+    if (fread(neurons_per_layer, sizeof(uint32_t), layers, f) != layers) goto error;
+
+    // malloc network
+    NN_network* net = NN_network_init(neurons_per_layer, layers);
+    if (!net) goto error;
+
+    // free neurons_per_layer (no longer needed)
+    free(neurons_per_layer);
+
+    // weights
+    for (unsigned int l = 0; l < layers - 1; l++) {
+        unsigned int in_count  = net->neurons_per_layer[l];
+        unsigned int out_count = net->neurons_per_layer[l + 1];
+        for (unsigned int i = 0; i < in_count; i++) {
+            if (fread(net->weights[l][i], sizeof(float), out_count, f) != out_count) goto error;
         }
     }
 
+    // bias
+    for (unsigned int l = 0; l < layers - 1; l++) {
+        unsigned int out_count = net->neurons_per_layer[l + 1];
+        if (fread(net->bias[l], sizeof(float), out_count, f) != out_count) goto error;
+    }
+
+    fclose(f);
+    return net;
+
+error:
+    fclose(f);
+    return NULL;
 }
 
-float NN_network_loss(NN_network* network, float *real_output, float *desired_output) {
-    float loss = 0;
-    for (unsigned int neuron = 0; neuron < network->n_neurons; neuron++) {
-        loss += (0.5)*(real_output[neuron]-desired_output[neuron])*(real_output[neuron]-desired_output[neuron]);
+int NN_network_load_from_file(NN_network *net, char *filepath) {
+    FILE *f = fopen(filepath, "rb");
+    if (!f) goto no_file;
+
+    uint16_t version;
+    uint8_t activation_id;
+    uint32_t layers;
+
+    // version check
+    if (fread(&version, sizeof(uint16_t), 1, f) != 1) goto error;       // [2 byte] version
+    if (version != NN_FILE_VERSION) {
+        fprintf(stderr, ".net file version missmatch, file:%u, current:%u\n", version, NN_FILE_VERSION);
+        goto error;
     }
-    return loss;
+
+    if (fread(&activation_id, sizeof(uint8_t), 1, f) != 1) goto error;  // [1 byte] activation id
+    if (fread(&layers, sizeof(uint32_t), 1, f) != 1) goto error;        // [4 byte] layers
+    // shape check
+    if (net->layers != layers) goto wrong_shape;
+
+
+    // neruons_per_layer
+    unsigned int* neurons_per_layer = malloc(sizeof(uint32_t) * layers);
+    if (!neurons_per_layer) goto error;
+    if (fread(neurons_per_layer, sizeof(uint32_t), layers, f) != layers) goto error;
+
+    // shape check 
+    if (memcmp(net->neurons_per_layer, neurons_per_layer, layers)!=0) {free(neurons_per_layer); goto wrong_shape; }
+    free(neurons_per_layer);
+
+    // weights
+    for (unsigned int l = 0; l < layers - 1; l++) {
+        unsigned int in_count  = net->neurons_per_layer[l];
+        unsigned int out_count = net->neurons_per_layer[l + 1];
+        for (unsigned int i = 0; i < in_count; i++) {
+            if (fread(net->weights[l][i], sizeof(float), out_count, f) != out_count) goto error;
+        }
+    }
+
+    // bias
+    for (unsigned int l = 0; l < layers - 1; l++) {
+        unsigned int out_count = net->neurons_per_layer[l + 1];
+        if (fread(net->bias[l], sizeof(float), out_count, f) != out_count) goto error;
+    }
+
+    printf("succesfully loaded network.\n");
+    fclose(f);
+    return 0;
+no_file:
+    printf("could not find file: %s\n",filepath);
+    return -3;
+error:
+    fclose(f);
+    return -1;
+wrong_shape:
+    fclose(f);
+    fprintf(stderr, "missmatched network shape when loading from file: %s\n",filepath);
+    return -2;
 }
-*/

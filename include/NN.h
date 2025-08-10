@@ -9,6 +9,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+#define NN_FILE_VERSION 0
+
 #define NN_DEBUG_PRINT 1
 #define NN_INIT_ZERO 1
 #define NN_MEMORY_TRIM_AFTER_FREE 1
@@ -98,41 +100,8 @@ void NN_processor_process(NN_processor* processor, float* in, float* out);
 // utility functions
 void NN_network_randomise(NN_network* network, float weight_min, float weight_max, float bias_min, float bias_max);
 float NN_trainer_loss(NN_trainer* trainer, float* desired);
-void NN_network_save_to_file(NN_network* network, char* filepath);
+int NN_network_load_from_file(NN_network* network, char* filepath);
+int NN_network_save_to_file(NN_network* network, char* filepath);
 
 
-
-/*
-    OLD CODE
-
-
-
-typedef struct {
-    float* weights;
-    float* bias;
-    unsigned int size;
-} NN_layer;
-
-typedef struct {
-    NN_layer* layers;
-    unsigned int n_layers;
-    unsigned int n_neurons;
-} NN_network;
-
-NN_layer NN_layer_init(float* weights, float* bias, unsigned int size);
-void NN_layer_destroy(NN_layer* layer);
-
-void NN_layer_process(float* input, NN_layer* layer1, NN_layer* layer2, float* output);
-
-
-NN_network NN_network_init(NN_layer* layers, unsigned int n_layers, unsigned int n_neurons);
-void NN_network_destroy(NN_network* network);
-
-
-
-float* NN_network_process(NN_network* network, float* output, float* input);
-float* NN_network_forward(NN_network* network, float* output, float* input);
-void NN_network_backprop(NN_network* network, float* real_output, float* desired_output, float* intermediates, float learning_rate);
-float NN_network_loss(NN_network* network, float *real_output, float *desired_output);
-*/
 #endif

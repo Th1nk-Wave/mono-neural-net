@@ -53,7 +53,11 @@ void main() {
     NN_network* net = NN_network_init(neurons_per_layer, 2);
     NN_trainer* trainer = NN_trainer_init(net, learning_settings, use_settings, "cpu1");
     
-    NN_network_randomise(net, RANDOM_INIT_MIN, RANDOM_INIT_MAX, RANDOM_INIT_MIN, RANDOM_INIT_MAX);
+    if (NN_network_load_from_file(net, "sample_net.net")==-3) {
+        // if no network to load from exists, just randomise
+        NN_network_randomise(net, RANDOM_INIT_MIN, RANDOM_INIT_MAX, RANDOM_INIT_MIN, RANDOM_INIT_MAX);
+    }
+    
 
     // train
     unsigned int batch_size = 8;
@@ -85,10 +89,14 @@ void main() {
         epoch++;
     }
     
+    // save to file
+    printf("saving network...\n");
+    NN_network_save_to_file(net, "sample_net.net");
     
-    printf("cleaning up...\n");
+    
 
     // clean up
+    printf("cleaning up...\n");
     NN_trainer_free(trainer);
     NN_network_free(net);
     free(learning_settings);

@@ -1,3 +1,8 @@
+*** super high priority
+[] add endian handling to file saving/loading logic
+
+
+
 *** first things first
 [] init functions for network, trainer and processor.
 [] free functions for above.
