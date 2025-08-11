@@ -55,7 +55,7 @@ void main() {
     
     if (NN_network_load_from_file(net, "sample_net.net")==-3) {
         // if no network to load from exists, just randomise
-        NN_network_randomise(net, RANDOM_INIT_MIN, RANDOM_INIT_MAX, RANDOM_INIT_MIN, RANDOM_INIT_MAX);
+        NN_network_randomise_xaivier(net, RANDOM_INIT_MIN, RANDOM_INIT_MAX);
     }
     
 

@@ -158,19 +158,18 @@ void NN_network_free(NN_network *net) {
     #endif
 }
 
-void NN_network_randomise(NN_network *net, float weight_min, float weight_max, float bias_min, float bias_max) {
+void NN_network_randomise_xavier(NN_network *net, float weight_min, float weight_max) {
     for (unsigned int l = 0; l < net->layers - 1; l++) {
-        for (unsigned int i = 0; i < net->neurons_per_layer[l]; i++) {
-            for (unsigned int j = 0; j < net->neurons_per_layer[l + 1]; j++) {
-                net->weights[l][i][j] = random_float_range(weight_min, weight_max);
+        unsigned int in_n = net->neurons_per_layer[l];
+        unsigned int out_n = net->neurons_per_layer[l + 1];
+        float limit = sqrtf(6.0f / (float)(in_n + out_n));
+        for (unsigned int i = 0; i < in_n; i++) {
+            for (unsigned int j = 0; j < out_n; j++) {
+                net->weights[l][i][j] = random_float_range(-limit, limit);
             }
         }
-        for (unsigned int j = 0; j < net->neurons_per_layer[l + 1]; j++) {
-            if (bias_max==0 && bias_min==0) {
-                net->bias[l][j] = 0;
-            } else {
-                net->bias[l][j] = random_float_range(bias_min, bias_max);
-            } 
+        for (unsigned int j = 0; j < out_n; j++) {
+            net->bias[l][j] = 0.0f;
         }
     }
 }
