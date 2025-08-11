@@ -44,7 +44,7 @@ void main() {
     NN_use_settings* use_settings = (NN_use_settings*)malloc(sizeof(NN_use_settings));
     learning_settings->learning_rate = LEARNING_RATE;
     use_settings->activation = SIGMOID;
-    learning_settings->optimizer = GRADIENT_DESCENT;
+    learning_settings->optimizer = ADAMW;
     learning_settings->use_batching = true;
     use_settings->device_type = CPU;
 
