@@ -10,7 +10,7 @@
 #include <stdbool.h>
 
 #define NN_FILE_VERSION 0
-#define NN_VERSION "0.1.0"
+#define NN_VERSION "0.1.1"
 
 #define NN_DEBUG_PRINT 1
 #define NN_INIT_ZERO 1
