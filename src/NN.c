@@ -247,8 +247,9 @@ void NN_trainer_free(NN_trainer* trainer) {
         free(trainer->grad_bias);
     }
 
-    free(trainer);
     free(trainer->processor.device_name);
+    free(trainer);
+    
 }
 
 NN_processor* NN_processor_init(NN_network* network, NN_use_settings* settings, char* device_name) {
