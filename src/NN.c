@@ -159,7 +159,6 @@ void NN_network_free(NN_network *net) {
 }
 
 void NN_network_randomise(NN_network *net, float weight_min, float weight_max, float bias_min, float bias_max) {
-    // randomize weights + biases
     for (unsigned int l = 0; l < net->layers - 1; l++) {
         for (unsigned int i = 0; i < net->neurons_per_layer[l]; i++) {
             for (unsigned int j = 0; j < net->neurons_per_layer[l + 1]; j++) {
@@ -167,8 +166,11 @@ void NN_network_randomise(NN_network *net, float weight_min, float weight_max, f
             }
         }
         for (unsigned int j = 0; j < net->neurons_per_layer[l + 1]; j++) {
-            //net->bias[l][j] = 0; // biases often initialized to zero, but random is also fine
-            net->bias[l][j] = random_float_range(bias_min, bias_max); 
+            if (bias_max==0 && bias_min==0) {
+                net->bias[l][j] = 0;
+            } else {
+                net->bias[l][j] = random_float_range(bias_min, bias_max);
+            } 
         }
     }
 }
