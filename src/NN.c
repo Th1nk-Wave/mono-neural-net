@@ -625,7 +625,7 @@ int NN_network_load_from_file(NN_network *net, char *filepath) {
     if (fread(neurons_per_layer, sizeof(uint32_t), layers, f) != layers) goto error;
 
     // shape check 
-    if (memcmp(net->neurons_per_layer, neurons_per_layer, layers)!=0) {free(neurons_per_layer); goto wrong_shape; }
+    if (memcmp(net->neurons_per_layer, neurons_per_layer, layers*sizeof(float))!=0) {free(neurons_per_layer); goto wrong_shape; }
     free(neurons_per_layer);
 
     // weights
