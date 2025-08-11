@@ -10,6 +10,7 @@
 #include <stdbool.h>
 
 #define NN_FILE_VERSION 0
+#define NN_VERSION "0.1.0"
 
 #define NN_DEBUG_PRINT 1
 #define NN_INIT_ZERO 1
@@ -46,13 +47,19 @@ typedef struct {
     float learning_rate;
     NN_optimizer optimizer;
     bool use_batching;
-} NN_learning_settings;
 
+    // adam
+    float adam_beta1;
+    float adam_beta2;
+    float adam_epsilon;
+
+} NN_learning_settings;
 
 typedef struct {
     NN_activation_function activation;
     NN_device device_type;
 } NN_use_settings;
+
 
 typedef struct {
     float* in;
@@ -76,6 +83,13 @@ typedef struct {
     NN_processor processor;
     float ***grad_weights; // same shape as weights
     float **grad_bias;     // same shape as bias
+
+    // adam state (only allocated when optimizer == ADAM)
+    float ***m_weights;
+    float ***v_weights;
+    float **m_bias;
+    float **v_bias;
+    unsigned int adam_t;   // time step for bias correction
 } NN_trainer;
 
 

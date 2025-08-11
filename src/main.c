@@ -76,7 +76,7 @@ void main() {
 
     unsigned int epoch = 0;
     float loss = 0;
-    for (unsigned int i = 0; i < 400000; i++) {
+    for (unsigned int i = 0; i < 40; i++) {
         shuffle(idx, 8);
         loss = 0;
         for (unsigned int batch = 0; batch < batch_size; batch++) {
