@@ -43,7 +43,11 @@ void main() {
     NN_learning_settings* learning_settings = (NN_learning_settings*)malloc(sizeof(NN_learning_settings));
     NN_use_settings* use_settings = (NN_use_settings*)malloc(sizeof(NN_use_settings));
     learning_settings->learning_rate = LEARNING_RATE;
-    use_settings->activation = SIGMOID;
+    learning_settings->adam_beta1 = 0; // 0 for default
+    learning_settings->adam_beta2 = 0;
+    learning_settings->adam_epsilon = 0;
+    learning_settings->weight_decay = 0;
+    use_settings->activation = TANH;
     learning_settings->optimizer = ADAMW;
     learning_settings->use_batching = true;
     use_settings->device_type = CPU;
@@ -60,8 +64,8 @@ void main() {
     
 
     // train
-    unsigned int batch_size = 8;
-    float training_data[8][2][2] = {
+    unsigned int batch_size = 10;
+    float training_data[10][2][2] = {
         {{0,0},{0,0}},
         {{0,1},{0,1}},
         {{1,0},{1,0}},
@@ -69,14 +73,16 @@ void main() {
         {{0.1,0.1},{0.1,0.1}},
         {{0,0.5},{0,0.5}},
         {{0.5,0},{0.5,0}},
-        {{0.9,0.9},{0.9,0.9}},
+        {{-0.9,-0.9},{-0.9,-0.9}},
+        {{-1,-1},{-1,-1}},
+        {{1,-1},{1,-1}},
     };
 
-    unsigned int idx[8] = {0,1,2,3,4,5,6,7};
+    unsigned int idx[10] = {0,1,2,3,4,5,6,7,8,9};
 
     unsigned int epoch = 0;
     float loss = 0;
-    for (unsigned int i = 0; i < 40; i++) {
+    for (unsigned int i = 0; i < 400; i++) {
         shuffle(idx, 8);
         loss = 0;
         for (unsigned int batch = 0; batch < batch_size; batch++) {
