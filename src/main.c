@@ -2,6 +2,7 @@
 #include "RNG.h"
 
 #include <malloc.h>
+#include <math.h>
 #include <stdio.h>
 
 #ifdef _WIN32
@@ -47,14 +48,14 @@ void main() {
     learning_settings->adam_beta2 = 0;
     learning_settings->adam_epsilon = 0;
     learning_settings->weight_decay = 0;
-    use_settings->activation = TANH;
-    learning_settings->optimizer = ADAMW;
+    learning_settings->optimizer = ADAM;
     learning_settings->use_batching = true;
     use_settings->device_type = CPU;
 
     // init
-    unsigned int neurons_per_layer[2] = {2,2};
-    NN_network* net = NN_network_init(neurons_per_layer, 2);
+    unsigned int neurons_per_layer[4] = {2,3,3,2};
+    NN_activation_function activation_per_layer[4] = {LERELU,LERELU,LERELU,LERELU};
+    NN_network* net = NN_network_init(neurons_per_layer, activation_per_layer, 4);
     NN_trainer* trainer = NN_trainer_init(net, learning_settings, use_settings, "cpu1");
     
     if (NN_network_load_from_file(net, "sample_net.net")==-3) {

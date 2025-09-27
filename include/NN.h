@@ -9,12 +9,14 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define NN_FILE_VERSION 0
-#define NN_VERSION "0.1.1"
+#define NN_FILE_VERSION 1
+#define NN_VERSION "0.1.2"
 
 #define NN_DEBUG_PRINT 1
 #define NN_INIT_ZERO 1
 #define NN_MEMORY_TRIM_AFTER_FREE 1
+
+#define LERELU_FACTOR 0.1
 
 typedef enum {
     AUTO,
@@ -24,11 +26,12 @@ typedef enum {
     TPU,
 } NN_device;
 
-typedef enum {
+typedef enum:char {
     RELU,
     SIGMOID,
     SOFTMAX,
     TANH,
+    LERELU
 } NN_activation_function;
 
 typedef enum {
@@ -58,7 +61,6 @@ typedef struct {
 } NN_learning_settings;
 
 typedef struct {
-    NN_activation_function activation;
     NN_device device_type;
 } NN_use_settings;
 
@@ -68,6 +70,7 @@ typedef struct {
     float** out;
 
     unsigned int* neurons_per_layer;
+    NN_activation_function* activation_per_layer;
     unsigned int layers;
 
     float*** weights;
@@ -97,6 +100,7 @@ typedef struct {
 
 // init functions
 NN_network* NN_network_init(unsigned int* neurons_per_layer,
+                            NN_activation_function* activation_per_layer,
                             unsigned int layers);
 NN_network* NN_network_init_from_file(char* filepath);
 NN_trainer* NN_trainer_init(NN_network* network, NN_learning_settings* learn_settings, NN_use_settings* use_settings, char* device_name);

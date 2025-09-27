@@ -34,12 +34,15 @@ size_t malloc_size(const void *p) {
 
 
 NN_network* NN_network_init(unsigned int* neurons_per_layer,
+                            NN_activation_function* activation_per_layer,
                             unsigned int layers) {
     NN_network* net = (NN_network*)malloc(sizeof(NN_network));
     net->layers = layers;
     net->neurons_per_layer = malloc(sizeof(unsigned int) * layers);
+    net->activation_per_layer = malloc(sizeof(NN_activation_function) * layers);
     for (unsigned int layer = 0; layer < layers; layer++) {
         net->neurons_per_layer[layer] = neurons_per_layer[layer];
+        net->activation_per_layer[layer] = activation_per_layer[layer];
     }
 
     net->weights = malloc(sizeof(float**) * (layers - 1));
@@ -149,6 +152,7 @@ void NN_network_free(NN_network *net) {
     free(net->out);
 
     free(net->neurons_per_layer);
+    free(net->activation_per_layer);
     free(net);
 
     #if NN_MEMORY_TRIM_AFTER_FREE
@@ -351,9 +355,12 @@ void NN_processor_process(NN_processor* processor, float* in, float* out) {
             }
 
             // apply activation
-            switch (processor->settings->activation) {
+            switch (net->activation_per_layer[layer]) {
                 case RELU:
                     net->out[layer][j] = sum > 0 ? sum : 0;
+                    break;
+                case LERELU:
+                    net->out[layer][j] = sum > 0 ? sum : sum*LERELU_FACTOR;
                     break;
                 case SIGMOID:
                     net->out[layer][j] = 1.0f / (1.0f + expf(-sum));
@@ -368,7 +375,7 @@ void NN_processor_process(NN_processor* processor, float* in, float* out) {
             }
         }
 
-        if (processor->settings->activation == SOFTMAX && layer == layers - 1) {
+        if (net->activation_per_layer[layer] == SOFTMAX && layer == layers - 1) {
             float max = net->out[layer][0];
             for (unsigned int i = 1; i < net->neurons_per_layer[layer]; i++)
                 if (net->out[layer][i] > max) max = net->out[layer][i];
@@ -411,7 +418,7 @@ void NN_trainer_train(NN_trainer* trainer, float* in, float* desired_out) {
         float out = net->out[out_layer][i];
         float err = out - desired_out[i];
         float deriv = 1.0f;
-        switch (settings->activation) {
+        switch (net->activation_per_layer[out_layer]) {
             case SIGMOID:
                 deriv = out * (1.0f - out);
                 break;
@@ -420,6 +427,9 @@ void NN_trainer_train(NN_trainer* trainer, float* in, float* desired_out) {
                 break;
             case RELU:
                 deriv = (out > 0) ? 1.0f : 0.0f;
+                break;
+            case LERELU:
+                deriv = (out > 0) ? 1.0f : LERELU_FACTOR;
                 break;
             case SOFTMAX:
                 deriv = 1.0f; // usually combined with cross-entropy loss
@@ -437,10 +447,11 @@ void NN_trainer_train(NN_trainer* trainer, float* in, float* desired_out) {
                 delta_sum += net->weights[l][i][j] * deltas[l + 1][j];
             }
             float deriv = 1.0f;
-            switch (settings->activation) {
+            switch (net->activation_per_layer[l]) {
                 case SIGMOID: deriv = out * (1.0f - out); break;
                 case TANH: deriv = 1.0f - out * out; break;
                 case RELU: deriv = (out > 0) ? 1.0f : 0.0f; break;
+                case LERELU: deriv = (out > 0) ? 1.0f : LERELU_FACTOR; break;
                 default: break;
             }
             deltas[l][i] = delta_sum * deriv;
@@ -488,7 +499,7 @@ void NN_trainer_accumulate(NN_trainer *trainer, float *input, float *target) {
         float out = net->out[out_layer][i];
         float err = out - target[i];
         float deriv = 1.0f;
-        switch (settings->activation) {
+        switch (net->activation_per_layer[i]) {
             case SIGMOID:
                 deriv = out * (1.0f - out);
                 break;
@@ -497,6 +508,9 @@ void NN_trainer_accumulate(NN_trainer *trainer, float *input, float *target) {
                 break;
             case RELU:
                 deriv = (out > 0) ? 1.0f : 0.0f;
+                break;
+            case LERELU:
+                deriv = (out > 0) ? 1.0f : LERELU_FACTOR;
                 break;
             case SOFTMAX:
                 deriv = 1.0f; // usually combined with cross-entropy loss
@@ -514,10 +528,11 @@ void NN_trainer_accumulate(NN_trainer *trainer, float *input, float *target) {
                 delta_sum += net->weights[l][i][j] * deltas[l + 1][j];
             }
             float deriv = 1.0f;
-            switch (settings->activation) {
+            switch (net->activation_per_layer[l]) {
                 case SIGMOID: deriv = out * (1.0f - out); break;
                 case TANH: deriv = 1.0f - out * out; break;
                 case RELU: deriv = (out > 0) ? 1.0f : 0.0f; break;
+                case LERELU: deriv = (out > 0) ? 1.0f : LERELU_FACTOR; break;
                 default: break;
             }
             deltas[l][i] = delta_sum * deriv;
@@ -664,9 +679,9 @@ int NN_network_save_to_file(NN_network *net, char *filepath) {
     uint8_t activation_id = 0;
 
     if (fwrite(&version, sizeof(uint16_t), 1, f) != 1) goto error;                                      // [2 byte] version
-    if (fwrite(&activation_id, sizeof(uint8_t), 1, f) != 1) goto error;                                 // [1 byte] activation id 
     if (fwrite(&net->layers, sizeof(uint32_t), 1, f) != 1) goto error;                                  // [4 byte] layers
     if (fwrite(net->neurons_per_layer, sizeof(uint32_t), net->layers, f) != net->layers) goto error;    // [4 * layers byte] neurons_per_layer
+    if (fwrite(net->activation_per_layer, sizeof(uint8_t), net->layers, f) != net->layers) goto error;  // [1 * layers byte] activation_per_layer
 
     // weights
     for (unsigned int l = 0; l < net->layers - 1; l++) {
@@ -706,20 +721,23 @@ NN_network* NN_network_init_from_file(char *filepath) {
         goto error;
     }
 
-    if (fread(&activation_id, sizeof(uint8_t), 1, f) != 1) goto error;  // [1 byte] activation id
     if (fread(&layers, sizeof(uint32_t), 1, f) != 1) goto error;        // [4 byte] layers
 
     // neruons_per_layer
     unsigned int* neurons_per_layer = malloc(sizeof(uint32_t) * layers);
+    NN_activation_function* activation_per_layer = malloc(sizeof(uint8_t) * layers);
     if (!neurons_per_layer) goto error;
+    if (!activation_per_layer) goto error;
     if (fread(neurons_per_layer, sizeof(uint32_t), layers, f) != layers) goto error;
+    if (fread(activation_per_layer, sizeof(uint8_t), layers, f) != layers) goto error;
 
     // malloc network
-    NN_network* net = NN_network_init(neurons_per_layer, layers);
+    NN_network* net = NN_network_init(neurons_per_layer, activation_per_layer, layers);
     if (!net) goto error;
 
     // free neurons_per_layer (no longer needed)
     free(neurons_per_layer);
+    free(activation_per_layer);
 
     // weights
     for (unsigned int l = 0; l < layers - 1; l++) {
@@ -759,7 +777,6 @@ int NN_network_load_from_file(NN_network *net, char *filepath) {
         goto error;
     }
 
-    if (fread(&activation_id, sizeof(uint8_t), 1, f) != 1) goto error;  // [1 byte] activation id
     if (fread(&layers, sizeof(uint32_t), 1, f) != 1) goto error;        // [4 byte] layers
     // shape check
     if (net->layers != layers) goto wrong_shape;
@@ -767,12 +784,17 @@ int NN_network_load_from_file(NN_network *net, char *filepath) {
 
     // neruons_per_layer
     unsigned int* neurons_per_layer = malloc(sizeof(uint32_t) * layers);
+    NN_activation_function* activation_per_layer = malloc(sizeof(uint8_t) * layers);
     if (!neurons_per_layer) goto error;
+    if (!activation_per_layer) goto error;
     if (fread(neurons_per_layer, sizeof(uint32_t), layers, f) != layers) goto error;
+    if (fread(activation_per_layer, sizeof(uint8_t), layers, f) != layers) goto error;
 
     // shape check 
     if (memcmp(net->neurons_per_layer, neurons_per_layer, layers*sizeof(unsigned int))!=0) {free(neurons_per_layer); goto wrong_shape; }
+    if (memcmp(net->activation_per_layer, activation_per_layer, layers*sizeof(uint8_t))!=0) {free(activation_per_layer); goto wrong_shape; }
     free(neurons_per_layer);
+    free(activation_per_layer);
 
     // weights
     for (unsigned int l = 0; l < layers - 1; l++) {
