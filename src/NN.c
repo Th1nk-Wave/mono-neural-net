@@ -499,7 +499,7 @@ void NN_trainer_accumulate(NN_trainer *trainer, float *input, float *target) {
         float out = net->out[out_layer][i];
         float err = out - target[i];
         float deriv = 1.0f;
-        switch (net->activation_per_layer[i]) {
+        switch (net->activation_per_layer[out_layer]) {
             case SIGMOID:
                 deriv = out * (1.0f - out);
                 break;
