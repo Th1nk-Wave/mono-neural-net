@@ -10,7 +10,7 @@
 #include <stdbool.h>
 
 #define NN_FILE_VERSION 1
-#define NN_VERSION "0.1.2"
+#define NN_VERSION "0.1.3"
 
 #define NN_DEBUG_PRINT 1
 #define NN_INIT_ZERO 1
@@ -31,7 +31,7 @@ typedef enum:char {
     SIGMOID,
     SOFTMAX,
     TANH,
-    LERELU
+    LERELU,
 } NN_activation_function;
 
 typedef enum {
@@ -44,12 +44,28 @@ typedef enum {
 
 typedef enum {
     MSE,
+    CROSS_ENTROPY,
+    MAE,
+    HUBER,
 } NN_loss_function;
+
+typedef enum {
+    FULLY_CONNECTED,
+    CONVOLUTIONAL,
+    RECURRENT,
+    POOLING,
+    DROPOUT,
+    DECONVOLUTIONAL,
+    ATTENTION,
+    BATCH_NORM,
+    SKIP,
+} NN_layer_type;
 
 
 typedef struct {
     float learning_rate;
     NN_optimizer optimizer;
+    NN_loss_function loss_function;
     bool use_batching;
 
     float weight_decay;

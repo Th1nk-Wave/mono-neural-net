@@ -337,6 +337,22 @@ void NN_processor_free(NN_processor* processor) {
     free(processor);
 }
 
+static inline float NN_loss_deriv(NN_loss_function function, float out, float target) {
+    switch (function) {
+        case MSE: return out - target;
+        case MAE: return (out > target) ? 1.0f : -1.0f;
+        case HUBER: {
+            float diff = out - target;
+            const float delta = 1.0f;
+            if (fabsf(diff) <= delta) return diff;
+            return (diff > 0) ? delta : -delta;
+        }
+        // cross entropy only valid if activation is SOFTMAX
+        case CROSS_ENTROPY: return out - target;
+        default: return out - target;
+    }
+}
+
 void NN_processor_process(NN_processor* processor, float* in, float* out) {
     NN_network* net = processor->network;
     unsigned int layers = net->layers;
@@ -416,7 +432,7 @@ void NN_trainer_train(NN_trainer* trainer, float* in, float* desired_out) {
     unsigned int out_layer = layers - 1;
     for (unsigned int i = 0; i < net->neurons_per_layer[out_layer]; i++) {
         float out = net->out[out_layer][i];
-        float err = out - desired_out[i];
+        float loss_deriv = NN_loss_deriv(trainer->learning_settings->loss_function, out, desired_out[i]);
         float deriv = 1.0f;
         switch (net->activation_per_layer[out_layer]) {
             case SIGMOID:
@@ -432,10 +448,10 @@ void NN_trainer_train(NN_trainer* trainer, float* in, float* desired_out) {
                 deriv = (out > 0) ? 1.0f : LERELU_FACTOR;
                 break;
             case SOFTMAX:
-                deriv = 1.0f; // usually combined with cross-entropy loss
+                deriv = 1.0f;
                 break;
         }
-        deltas[out_layer][i] = err * deriv;
+        deltas[out_layer][i] = loss_deriv * deriv;
     }
 
     // backpropagation for hidden layers
@@ -497,7 +513,7 @@ void NN_trainer_accumulate(NN_trainer *trainer, float *input, float *target) {
     unsigned int out_layer = layers - 1;
     for (unsigned int i = 0; i < net->neurons_per_layer[out_layer]; i++) {
         float out = net->out[out_layer][i];
-        float err = out - target[i];
+        float loss_deriv = NN_loss_deriv(trainer->learning_settings->loss_function, out, target[i]);
         float deriv = 1.0f;
         switch (net->activation_per_layer[out_layer]) {
             case SIGMOID:
@@ -513,10 +529,10 @@ void NN_trainer_accumulate(NN_trainer *trainer, float *input, float *target) {
                 deriv = (out > 0) ? 1.0f : LERELU_FACTOR;
                 break;
             case SOFTMAX:
-                deriv = 1.0f; // usually combined with cross-entropy loss
+                deriv = 1.0f;
                 break;
         }
-        deltas[out_layer][i] = err * deriv;
+        deltas[out_layer][i] = loss_deriv * deriv;
     }
 
     // backpropagation for hidden layers
@@ -665,7 +681,7 @@ float NN_trainer_loss(NN_trainer* trainer, float* desired) {
     unsigned int last = net->layers - 1;
     unsigned int out_n = net->neurons_per_layer[last];
     for (unsigned int i = 0; i < out_n; i++) {
-        float diff = net->out[last][i] - desired[i];
+        float diff = NN_loss_deriv(trainer->learning_settings->loss_function, net->out[last][i], desired[i]);
         loss += diff * diff;
     }
     return loss / out_n;

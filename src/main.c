@@ -49,6 +49,7 @@ void main() {
     learning_settings->adam_epsilon = 0;
     learning_settings->weight_decay = 0;
     learning_settings->optimizer = ADAM;
+    learning_settings->loss_function = MSE;
     learning_settings->use_batching = true;
     use_settings->device_type = CPU;
 
