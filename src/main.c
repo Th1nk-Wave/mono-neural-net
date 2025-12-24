@@ -1,32 +1,20 @@
-#include "NN.h"
-#include "RNG.h"
+#include "layers/fully_connected.h"
+#include "layers/recurrent.h"
+#include "NN2.h"
 
-#include <malloc.h>
+
 #include <math.h>
 #include <stdio.h>
-
-#ifdef _WIN32
-#   include <windows.h>
-#   define SLEEP(msecs) Sleep(msecs)
-#elif __unix
-#   include <time.h>
-#   define SLEEP(msecs) do { struct timespec ts; ts.tv_sec = msecs/1000; ts.tv_nsec = (msecs%1000)*1000000; nanosleep(&ts, NULL); } while (0)
-#else
-#   error "Unknown system"
-#endif
-
-
-
-//#define NEURONS_PER_LAYER 512
-#define NEURONS_PER_LAYER 2
-#define LAYERS 2
+#include <stdbool.h>
+#include <stdlib.h>
 
 #define RANDOM_INIT_MAX 0.1
 #define RANDOM_INIT_MIN -0.1
 
-#define LEARNING_RATE 0.1
-#define LEARNING_TEST_SPLIT 0.7
-
+#define layers_N 4
+#define in_param 2
+#define hidden_param 3
+#define out_param 2
 
 void shuffle(unsigned int *array, size_t n) {
     for (size_t i = n - 1; i > 0; i--) {
@@ -37,33 +25,39 @@ void shuffle(unsigned int *array, size_t n) {
     }
 }
 
-
 void main() {
-
-    // settings
-    NN_learning_settings* learning_settings = (NN_learning_settings*)malloc(sizeof(NN_learning_settings));
     NN_use_settings* use_settings = (NN_use_settings*)malloc(sizeof(NN_use_settings));
-    learning_settings->learning_rate = LEARNING_RATE;
-    learning_settings->adam_beta1 = 0; // 0 for default
-    learning_settings->adam_beta2 = 0;
-    learning_settings->adam_epsilon = 0;
-    learning_settings->weight_decay = 0;
-    learning_settings->optimizer = ADAM;
-    learning_settings->loss_function = MSE;
-    learning_settings->use_batching = true;
-    use_settings->device_type = CPU;
+    use_settings->device_type = AUTO;
 
-    // init
-    unsigned int neurons_per_layer[4] = {2,3,3,2};
-    NN_activation_function activation_per_layer[4] = {LERELU,LERELU,LERELU,LERELU};
-    NN_network* net = NN_network_init(neurons_per_layer, activation_per_layer, 4);
-    NN_trainer* trainer = NN_trainer_init(net, learning_settings, use_settings, "cpu1");
+    NN_learning_settings* learning_settings = (NN_learning_settings*)malloc(sizeof(NN_learning_settings));
+    learning_settings->learning_rate = 0.02;
+    learning_settings->loss_function = HUBER;
+    learning_settings->use_batching = true;
+    learning_settings->optimizer = ADAM;
+
+    NN_network* network = NN_network_init_from_file("sample_net.net");
+
+    if (!network) {
+        NN_layer** layers = (NN_layer**)malloc(sizeof(NN_layer*)*layers_N);
     
-    if (NN_network_load_from_file(net, "sample_net.net")==-3) {
-        // if no network to load from exists, just randomise
-        NN_network_randomise_xaivier(net, RANDOM_INIT_MIN, RANDOM_INIT_MAX);
+        layers[0] = NN_create_fully_connected_layer(in_param, hidden_param, TANH);
+        //layers[1] = NN_create_fully_connected_layer(hidden_param, hidden_param, LERELU);
+        //layers[2] = NN_create_fully_connected_layer(hidden_param, hidden_param, LERELU);
+        layers[3] = NN_create_fully_connected_layer(hidden_param, out_param, TANH);
+    
+        //layers[0] = NN_create_rnn_layer(in_param, hidden_param, TANH);
+        layers[1] = NN_create_rnn_layer(hidden_param, hidden_param, SIGMOID);
+        layers[2] = NN_create_rnn_layer(hidden_param, hidden_param, SIGMOID);
+        //layers[3] = NN_create_rnn_layer(hidden_param, out_param, SIGMOID);
+
+        network = NN_network_init(layers,layers_N);
+        NN_network_randomise_xaivier(network, RANDOM_INIT_MIN, RANDOM_INIT_MAX);
     }
-    
+
+    NN_processor* processor = NN_processor_init(network, use_settings, "AUTO");
+    NN_trainer* trainer = NN_trainer_init(processor, learning_settings);
+
+    // do training loop
 
     // train
     unsigned int batch_size = 10;
@@ -84,8 +78,8 @@ void main() {
 
     unsigned int epoch = 0;
     float loss = 0;
-    for (unsigned int i = 0; i < 400; i++) {
-        shuffle(idx, 8);
+    for (unsigned int i = 0; i < 100; i++) {
+        //shuffle(idx, 10);
         loss = 0;
         for (unsigned int batch = 0; batch < batch_size; batch++) {
             unsigned int index = idx[batch];
@@ -96,18 +90,29 @@ void main() {
         NN_trainer_apply(trainer, batch_size);
         epoch++;
     }
-    
+
+    float out[2] = {0,0};
+
+    printf("testing cases\n");
+    for (unsigned int batch = 0; batch < batch_size; batch++) {
+        unsigned int index = idx[batch];
+        NN_processor_process(processor, training_data[index][0],out);
+        loss += NN_trainer_loss(trainer, training_data[index][1]);
+        printf("test case: [%u] expected {%f,%f} result {%f,%f}\n",index,training_data[index][1][0],training_data[index][1][1], out[0], out[1]);
+    }
+    printf("loss: %f\n", loss/batch_size);
+
+
     // save to file
     printf("saving network...\n");
-    NN_network_save_to_file(net, "sample_net.net");
-    
-    
+    NN_network_save_to_file(network, "sample_net.net");
 
     // clean up
-    printf("cleaning up...\n");
     NN_trainer_free(trainer);
-    NN_network_free(net);
+    NN_processor_free(processor);
+    NN_network_free(network);
+
     free(learning_settings);
     free(use_settings);
-
 }
+

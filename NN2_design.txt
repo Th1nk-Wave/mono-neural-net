@@ -1,0 +1,34 @@
+NN_layer {
+    
+}
+
+
+
+NN_learning_settings {
+    learning_rate;
+    loss_function;
+    optimiser;
+
+    adam_beta1;
+    adam_beta2;
+    adam_epsilon;
+}
+
+NN_network {
+    NN_layer list;
+}
+
+NN_processor {
+    NN_use_settings;
+
+    NN_network;
+}
+
+
+NN_trainer {
+    NN_learning_settings;
+    adam_time;
+
+    NN_processor;
+    NN_training_layer;
+}

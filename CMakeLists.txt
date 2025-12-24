@@ -19,6 +19,7 @@ source_group("headers" FILES ${PROJECT_HEADERS})
 source_group("sources" FILES ${PROJECT_SOURCES})
 
 
+
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES} ${PROJECT_HEADERS}
                                                   ${PROJECT_CONFIGS})
 

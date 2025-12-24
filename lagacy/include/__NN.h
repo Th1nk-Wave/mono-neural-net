@@ -1,5 +1,5 @@
-#ifndef __NN_H_
-#define __NN_H_
+#ifndef __NN_OLD_H_
+#define __NN_OLD_H_
 
 #include "RNG.h"
 

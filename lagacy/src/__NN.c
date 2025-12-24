@@ -1,4 +1,4 @@
-#include "NN.h"
+#include "__NN.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -31,7 +31,7 @@ size_t malloc_size(const void *p) {
 #endif
 
 
-
+#if 0
 
 NN_network* NN_network_init(unsigned int* neurons_per_layer,
                             NN_activation_function* activation_per_layer,
@@ -841,3 +841,7 @@ wrong_shape:
     fprintf(stderr, "missmatched network shape when loading from file: %s\n",filepath);
     return -2;
 }
+
+
+
+#endif
