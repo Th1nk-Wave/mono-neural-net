@@ -12,9 +12,9 @@
 #define RANDOM_INIT_MIN -0.1
 
 #define layers_N 4
-#define in_param 2
+#define in_param 1
 #define hidden_param 3
-#define out_param 2
+#define out_param 1
 
 void shuffle(unsigned int *array, size_t n) {
     for (size_t i = n - 1; i > 0; i--) {
@@ -61,6 +61,7 @@ void main() {
 
     // train
     unsigned int batch_size = 10;
+    /*
     float training_data[10][2][2] = {
         {{0,0},{0,0}},
         {{0,1},{0,1}},
@@ -73,6 +74,21 @@ void main() {
         {{-1,-1},{-1,-1}},
         {{1,-1},{1,-1}},
     };
+    */
+    
+
+    float training_data[10][2] = {
+        {0.1,0.2},
+        {0.2,0.4},
+        {0.4,0.8},
+        {0.8,0.14},
+        {0.14,0.28},
+        {0.28,0.56},
+        {0.56,0.14},
+        {0.14,0.3},
+        {0.3,0.9},
+        {0.9,0.14},
+    };
 
     unsigned int idx[10] = {0,1,2,3,4,5,6,7,8,9};
 
@@ -83,8 +99,8 @@ void main() {
         loss = 0;
         for (unsigned int batch = 0; batch < batch_size; batch++) {
             unsigned int index = idx[batch];
-            NN_trainer_accumulate(trainer, training_data[index][0],training_data[index][1]);
-            loss += NN_trainer_loss(trainer, training_data[index][1]);
+            NN_trainer_accumulate(trainer, &training_data[index][0],&training_data[index][1]);
+            loss += NN_trainer_loss(trainer, &training_data[index][1]);
         }
         printf("epoch %i, loss: %f\n", epoch, loss/batch_size);
         NN_trainer_apply(trainer, batch_size);
@@ -96,9 +112,9 @@ void main() {
     printf("testing cases\n");
     for (unsigned int batch = 0; batch < batch_size; batch++) {
         unsigned int index = idx[batch];
-        NN_processor_process(processor, training_data[index][0],out);
-        loss += NN_trainer_loss(trainer, training_data[index][1]);
-        printf("test case: [%u] expected {%f,%f} result {%f,%f}\n",index,training_data[index][1][0],training_data[index][1][1], out[0], out[1]);
+        NN_processor_process(processor, &training_data[index][0],out);
+        loss += NN_trainer_loss(trainer, &training_data[index][1]);
+        printf("test case: [%u] expected {%f,%f} result {%f}\n",index,training_data[index][0],training_data[index][1], out[0]);
     }
     printf("loss: %f\n", loss/batch_size);
 
