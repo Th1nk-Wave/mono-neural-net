@@ -13,17 +13,11 @@
 
 #define layers_N 4
 #define in_param 1
-#define hidden_param 3
+#define hidden_param 1
 #define out_param 1
 
-void shuffle(unsigned int *array, size_t n) {
-    for (size_t i = n - 1; i > 0; i--) {
-        size_t j = rand() % (i + 1);
-        unsigned int tmp = array[i];
-        array[i] = array[j];
-        array[j] = tmp;
-    }
-}
+#define TBPTT_STEPS 4
+#define SEQ_LEN 10
 
 void main() {
     NN_use_settings* use_settings = (NN_use_settings*)malloc(sizeof(NN_use_settings));
@@ -34,8 +28,9 @@ void main() {
     learning_settings->loss_function = HUBER;
     learning_settings->use_batching = true;
     learning_settings->optimizer = ADAM;
+    learning_settings->use_tbptt = 2;
 
-    NN_network* network = NN_network_init_from_file("sample_net.net",false);
+    NN_network* network = NN_network_init_from_file("sample_net.net",true);
 
     if (!network) {
         NN_layer** layers = (NN_layer**)malloc(sizeof(NN_layer*)*layers_N);
@@ -44,11 +39,13 @@ void main() {
         //layers[1] = NN_create_fully_connected_layer(hidden_param, hidden_param, LERELU);
         //layers[2] = NN_create_fully_connected_layer(hidden_param, hidden_param, LERELU);
         layers[3] = NN_create_fully_connected_layer(hidden_param, out_param, TANH);
+
     
         //layers[0] = NN_create_rnn_layer(in_param, hidden_param, TANH);
-        layers[1] = NN_create_rnn_layer(hidden_param, hidden_param, SIGMOID);
-        layers[2] = NN_create_rnn_layer(hidden_param, hidden_param, SIGMOID);
+        layers[1] = NN_create_rnn_tbptt_layer(hidden_param, hidden_param, SIGMOID,2);
+        layers[2] = NN_create_rnn_tbptt_layer(hidden_param, hidden_param, SIGMOID,2);
         //layers[3] = NN_create_rnn_layer(hidden_param, out_param, SIGMOID);
+
 
         network = NN_network_init(layers,layers_N);
         NN_network_randomise_xaivier(network, RANDOM_INIT_MIN, RANDOM_INIT_MAX);
@@ -57,52 +54,68 @@ void main() {
     NN_processor* processor = NN_processor_init(network, use_settings, "AUTO");
     NN_trainer* trainer = NN_trainer_init(processor, learning_settings);
 
-    // do training loop
 
     // train
     unsigned int batch_size = 10;
     
 
-    float training_data[10][2] = {
-        {0.1,0.2},
-        {0.2,0.4},
-        {0.4,0.8},
-        {0.8,0.14},
-        {0.14,0.28},
-        {0.28,0.56},
-        {0.56,0.14},
-        {0.14,0.3},
-        {0.3,0.9},
-        {0.9,0.14},
+    float x[SEQ_LEN] = {
+    0.1, 0.2, 0.4, 0.8, 0.14,
+    0.28, 0.56, 0.14, 0.3, 0.9
     };
 
-    unsigned int idx[10] = {0,1,2,3,4,5,6,7,8,9};
+    float y[SEQ_LEN];
+    y[0] = 0.0f; // no previous context
+    for (int i = 1; i < SEQ_LEN; i++)
+        y[i] = x[i] + x[i-1];
 
     unsigned int epoch = 0;
     float loss = 0;
-    for (unsigned int i = 0; i < 100; i++) {
-        //shuffle(idx, 10);
-        loss = 0;
-        for (unsigned int batch = 0; batch < batch_size; batch++) {
-            unsigned int index = idx[batch];
-            NN_trainer_accumulate(trainer, &training_data[index][0],&training_data[index][1]);
-            loss += NN_trainer_loss(trainer, &training_data[index][1]);
+    for (unsigned int epoch = 0; epoch < 30000; epoch++) {
+        loss = 0.0f;
+
+        
+        for (unsigned int start = 1; start + TBPTT_STEPS <= SEQ_LEN; start++) {
+
+            // reset RNN state between windows
+            NN_network_reset_state(network);
+            for (unsigned int t = 0; t < TBPTT_STEPS; t++) {
+                unsigned int idx = start + t;
+
+                NN_trainer_accumulate(
+                    trainer,
+                    &x[idx],   // input x_t
+                    &y[idx]    // target y_t
+                );
+
+                loss += NN_trainer_loss(trainer, &y[idx]);
+            }
+
+            NN_trainer_apply(trainer, TBPTT_STEPS);
         }
-        printf("epoch %i, loss: %f\n", epoch, loss/batch_size);
-        NN_trainer_apply(trainer, batch_size);
-        epoch++;
+
+        if (epoch % 20 == 0) {
+            printf("epoch %u, loss: %f\n",
+               epoch, loss / (SEQ_LEN - 1));
+        }
     }
 
     float out[2] = {0,0};
 
-    printf("testing cases\n");
-    for (unsigned int batch = 0; batch < batch_size; batch++) {
-        unsigned int index = idx[batch];
-        NN_processor_process(processor, &training_data[index][0],out);
-        loss += NN_trainer_loss(trainer, &training_data[index][1]);
-        printf("test case: [%u] expected {%f,%f} result {%f}\n",index,training_data[index][0],training_data[index][1], out[0]);
+    printf("\nTesting sequence prediction\n");
+
+    NN_network_reset_state(network);
+
+    for (unsigned int i = 1; i < SEQ_LEN; i++) {
+        float out = 0.0f;
+
+        NN_processor_process(processor, &x[i], &out);
+
+        printf(
+            "t=%u  x=%f  expected=%f  got=%f\n",
+            i, x[i], y[i], out
+        );
     }
-    printf("loss: %f\n", loss/batch_size);
 
 
     // save to file

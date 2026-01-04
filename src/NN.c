@@ -147,16 +147,17 @@ void NN_processor_process(NN_processor* processor, float* in, float* out) {
     NN_network* net = processor->network;
     unsigned int n_layers = net->n_layers;
 
-
     net->layers[0]->forward(net->layers[0],in);
     for (unsigned int layer = 1; layer < n_layers; layer++) {
         net->layers[layer]->forward(net->layers[layer],net->layers[layer-1]->out);
     }
     
+    
     for (unsigned int i = 0; i < net->layers[n_layers-1]->out_size; i++) {
         out[i] = net->layers[n_layers-1]->out[i];
     }
 }
+
 
 
 // TRAINING LAYER IMPLEMENTATION
@@ -253,9 +254,8 @@ void NN_trainer_accumulate(NN_trainer *trainer, float *input, float *target) {
     // run forward pass
     NN_processor_process(trainer->processor, input, net->layers[n_layers-1]->out);
 
-    float* delta = malloc(sizeof(float) * net->layers[n_layers-1]->out_size);
-
     // output layer delta
+    float* delta = malloc(sizeof(float) * net->layers[n_layers-1]->out_size);
     for (unsigned int i = 0; i < net->layers[n_layers-1]->out_size; i++) {
         delta[i] =
             NN_loss_deriv(trainer->learning_settings->loss_function,
@@ -263,6 +263,7 @@ void NN_trainer_accumulate(NN_trainer *trainer, float *input, float *target) {
                       target[i]);
     }
 
+    
     // backward pass
     for (int l = n_layers - 1; l >= 0; l--) {
         float *prev_delta = (l == 0) ? malloc(sizeof(float) * net->layers[l]->in_size) : malloc(sizeof(float) * net->layers[l - 1]->out_size);
@@ -292,6 +293,21 @@ void NN_trainer_apply(NN_trainer *trainer, unsigned int batch_size) {
 
         if (tl->apply) {
             tl->apply(tl, batch_size);
+        }
+    }
+}
+
+void NN_network_reset_state(NN_network* net) {
+    for (unsigned int l = 0; l < net->n_layers; l++) {
+        NN_layer* layer = net->layers[l];
+        if (layer->type == RECURRENT) {
+            NN_layer_rnn_params* p = layer->params;
+            memset(p->hidden_state, 0,
+                   sizeof(float) * layer->out_size);
+
+            if (layer->tbptt) {
+                layer->tbptt->current_step = 0;
+            }
         }
     }
 }
@@ -346,7 +362,7 @@ error:
     return -1;
 }
 
-NN_network* NN_network_init_from_file(char *filepath) {
+NN_network* NN_network_init_from_file(char *filepath, bool rnn_use_tbptt) {
     FILE *f = fopen(filepath, "rb");
     if (!f) return 0; // no file
 
@@ -368,7 +384,7 @@ NN_network* NN_network_init_from_file(char *filepath) {
         if (fread(&type, sizeof(NN_layer_type), 1, f) != 1) goto error;     // [1 byte] layer header type
         switch (type) {
             case FULLY_CONNECTED: layers[l] = NN_fully_connected_init_from_file(f); break;
-            case RECURRENT: layers[l] = NN_rnn_init_from_file(f); break;
+            case RECURRENT: layers[l] = NN_rnn_init_from_file(f,rnn_use_tbptt); break;
             default: fprintf(stderr,"network type id %u has no file save handler\n",type); break;
         }
     }

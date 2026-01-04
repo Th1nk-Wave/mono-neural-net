@@ -85,11 +85,22 @@ typedef struct {
     float adam_beta1;
     float adam_beta2;
     float adam_epsilon;
+
+    // tbptt
+    bool use_tbptt;
 } NN_learning_settings;
 
 typedef struct {
     NN_device device_type;
 } NN_use_settings;
+
+typedef struct {
+    float** inputs;      // [truncation_steps][input_size]
+    float** outputs;     // [truncation_steps][out_size]
+    float** hidden;      // [truncation_steps][out_size]
+    unsigned int max_steps;
+    unsigned int current_step;
+} NN_rnn_tbptt_history;
 
 typedef struct NN_layer NN_layer;
 struct NN_layer {
@@ -104,10 +115,15 @@ struct NN_layer {
     // layer specific 
     void* params;
 
+    // TBPTT history for RNN layers
+    bool use_tbptt;
+    NN_rnn_tbptt_history* tbptt;
+
     // vtable
     void (*forward)(struct NN_layer* layer, const float* input);
     void (*randomize)(struct NN_layer* layer, float min, float max);
 };
+
 
 typedef  struct NN_training_layer NN_training_layer ;
 struct NN_training_layer {
@@ -153,7 +169,7 @@ typedef struct {
 // init functions
 NN_API NN_network* NN_network_init(NN_layer** layers,
                             unsigned int n_layers);
-NN_API NN_network* NN_network_init_from_file(char* filepath);
+NN_API NN_network* NN_network_init_from_file(char *filepath, bool rnn_use_tbptt);
 NN_API NN_trainer* NN_trainer_init(NN_processor* processor, NN_learning_settings* learning_settings);
 NN_API NN_processor* NN_processor_init(NN_network* network, NN_use_settings* settings, char* device_name);
 NN_API NN_layer* NN_layer_init(unsigned int n_in, unsigned int n_out, NN_activation_function activation);
@@ -174,8 +190,8 @@ NN_API void NN_processor_process(NN_processor* processor, float* in, float* out)
 // utility functions
 NN_API void NN_network_randomise_xaivier(NN_network* network, float weight_min, float weight_max);
 NN_API float NN_trainer_loss(NN_trainer* trainer, float* desired);
-NN_API NN_network* NN_network_init_from_file(char* filepath);
 NN_API int NN_network_save_to_file(NN_network* network, char* filepath);
+NN_API void NN_network_reset_state(NN_network* net);
 
 // internal
 NN_API float NN_apply_activation(NN_activation_function activation, float in);

@@ -2,6 +2,8 @@
 #include "NN.h"
 #include "RNG.h"
 #include <errno.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +30,30 @@ void NN_rnn_forward(NN_layer* layer, const float* input) {
 
     // update hidden state
     memcpy(p->hidden_state, layer->out, sizeof(float) * layer->out_size);
+}
+
+void NN_rnn_forward_tbptt(NN_layer* layer, const float* input) {
+    NN_layer_rnn_params* p = layer->params;
+    NN_rnn_tbptt_history* hist = layer->tbptt;
+
+    unsigned int idx = hist->current_step % hist->max_steps;
+
+    // store input
+    memcpy(hist->inputs[idx], input,
+           sizeof(float) * layer->in_size);
+
+    // store h_{t-1}
+    memcpy(hist->hidden[idx], p->hidden_state,
+           sizeof(float) * layer->out_size);
+
+    // normal forward (produces h_t)
+    NN_rnn_forward(layer, input);
+
+    // store h_t
+    memcpy(hist->outputs[idx], layer->out,
+           sizeof(float) * layer->out_size);
+
+    hist->current_step++;
 }
 
 void NN_rnn_randomise(NN_layer* layer, float min, float max) {
@@ -69,6 +95,57 @@ void NN_rnn_backward(NN_training_layer* layer, const float* input, const float* 
             g->grad_hidden_state[h] += p->weights_hidden[o][h] * delta;
         }
     }
+}
+
+void NN_rnn_backward_tbptt(NN_training_layer* layer, const float* input, const float* delta_next, float* delta_out) {
+    NN_layer* base = layer->base;
+    NN_layer_rnn_params* p = (NN_layer_rnn_params*)base->params;
+    NN_layer_rnn_grads_buf* g =
+        (NN_layer_rnn_grads_buf*)layer->grads;
+    NN_rnn_tbptt_history* hist = base->tbptt;
+
+    unsigned int T = hist->current_step;
+    unsigned int K = layer->settings->use_tbptt;
+    if (T < K) K = T;
+
+    float* delta_t = calloc(base->out_size, sizeof(float));
+    float* dummy_delta_out = calloc(base->in_size, sizeof(float));
+
+    // timestep T-1: inject delta from upper layer
+    memcpy(delta_t, delta_next,
+           sizeof(float) * base->out_size);
+
+    for (int step = 0; step < (int)K; step++) {
+        int t = (int)T - 1 - step;
+        unsigned int idx = t % hist->max_steps;
+
+        // restore hidden state h_{t-1}
+        memcpy(p->hidden_state,
+               hist->hidden[idx],
+               sizeof(float) * base->out_size);
+
+        // run backward for one timestep
+        NN_rnn_backward(
+            layer,
+            hist->inputs[idx],
+            delta_t,
+            dummy_delta_out
+        );
+
+        /*
+         * Prepare delta for next iteration (t-1):
+         * temporal gradient only
+         */
+        memcpy(delta_t,
+               g->grad_hidden_state,
+               sizeof(float) * base->out_size);
+
+        memset(g->grad_hidden_state, 0,
+               sizeof(float) * base->out_size);
+    }
+
+    free(delta_t);
+    free(dummy_delta_out);
 }
 
 void NN_rnn_apply(NN_training_layer* layer, unsigned int batch_size) {
@@ -139,6 +216,39 @@ void NN_rnn_apply(NN_training_layer* layer, unsigned int batch_size) {
     }
 }
 
+void NN_rnn_tbptt_init(NN_layer* layer, unsigned int truncation_steps) {
+    NN_rnn_tbptt_history* hist = malloc(sizeof(NN_rnn_tbptt_history));
+    hist->max_steps = truncation_steps;
+    hist->current_step = 0;
+
+    hist->inputs = malloc(sizeof(float*) * truncation_steps);
+    hist->outputs = malloc(sizeof(float*) * truncation_steps);
+    hist->hidden = malloc(sizeof(float*) * truncation_steps);
+
+    for (unsigned int t = 0; t < truncation_steps; t++) {
+        hist->inputs[t] = calloc(layer->in_size, sizeof(float));
+        hist->outputs[t] = calloc(layer->out_size, sizeof(float));
+        hist->hidden[t] = calloc(layer->out_size, sizeof(float));
+    }
+
+    layer->tbptt = hist;
+}
+
+void NN_rnn_tbptt_free(NN_layer* layer) {
+    if (!layer->tbptt) return;
+    NN_rnn_tbptt_history* hist = layer->tbptt;
+
+    for (unsigned int t = 0; t < hist->max_steps; t++) {
+        free(hist->inputs[t]);
+        free(hist->outputs[t]);
+        free(hist->hidden[t]);
+    }
+    free(hist->inputs);
+    free(hist->outputs);
+    free(hist->hidden);
+    free(hist);
+}
+
 // creation
 NN_layer* NN_create_rnn_layer(unsigned int n_in, unsigned int n_out, NN_activation_function activation) {
     NN_layer* layer = NN_layer_init(n_in, n_out, activation);
@@ -158,11 +268,25 @@ NN_layer* NN_create_rnn_layer(unsigned int n_in, unsigned int n_out, NN_activati
     layer->type = RECURRENT;
     layer->forward = NN_rnn_forward;
     layer->randomize = NN_rnn_randomise;
+
+    return layer;
+}
+
+NN_layer* NN_create_rnn_tbptt_layer(unsigned int n_in, unsigned int n_out, NN_activation_function activation, unsigned int truncation_steps) {
+    NN_layer* layer = NN_create_rnn_layer(n_in, n_out, activation);
+    NN_rnn_tbptt_init(layer, truncation_steps);
+    layer->forward = NN_rnn_forward_tbptt;
+    layer->use_tbptt = true;
     return layer;
 }
 
 void NN_clean_up_rnn_layer(NN_layer* layer) {
     NN_layer_rnn_params* p = (NN_layer_rnn_params*)layer->params;
+
+    if (layer->use_tbptt) {
+        NN_rnn_tbptt_free(layer);
+    }
+
     for (unsigned int i = 0; i < layer->out_size; i++) {
         free(p->weights_input[i]);
         free(p->weights_hidden[i]);
@@ -173,6 +297,7 @@ void NN_clean_up_rnn_layer(NN_layer* layer) {
     free(p->hidden_state);
     free(p);
 }
+
 
 void NN_set_rnn_training_layer(NN_training_layer* layer, NN_learning_settings* settings) {
     if (settings->use_batching) {
@@ -190,7 +315,11 @@ void NN_set_rnn_training_layer(NN_training_layer* layer, NN_learning_settings* s
         layer->grads = g;
     }
 
-    layer->backward = NN_rnn_backward;
+    if (settings->use_tbptt) {
+        layer->backward = NN_rnn_backward_tbptt;
+    } else {
+        layer->backward = NN_rnn_backward;
+    }
     layer->apply = NN_rnn_apply;
 }
 
@@ -218,6 +347,10 @@ int NN_rnn_save_to_file(NN_layer *layer, FILE *f) {
     // metadata
     NN_layer_type layer_type = RECURRENT;
     if (fwrite(&layer_type, sizeof(NN_layer_type), 1, f) != 1) goto error;
+    if (fwrite(&layer->use_tbptt, sizeof(bool), 1, f) != 1) goto error;
+    if (layer->use_tbptt) {
+        if (fwrite(&layer->tbptt->max_steps, sizeof(uint32_t), 1, f) != 1) goto error;
+    }
     if (fwrite(&layer->activation, sizeof(NN_activation_function), 1, f) != 1) goto error;
     if (fwrite(&layer->in_size, sizeof(uint32_t), 1, f) != 1) goto error;
     if (fwrite(&layer->out_size, sizeof(uint32_t), 1, f) != 1) goto error;
@@ -244,19 +377,32 @@ error:
     return -1;
 }
 
-NN_layer* NN_rnn_init_from_file(FILE* f) {
+NN_layer* NN_rnn_init_from_file(FILE* f, bool use_tbptt) {
 
     // metadata
     NN_activation_function activation;
     uint32_t in_size;
     uint32_t out_size;
+    bool using_tbptt;
+    uint32_t tbptt_max_steps;
 
+    if (fread(&using_tbptt, sizeof(bool), 1, f) != 1) goto error;
+    if (using_tbptt) {
+        if (fread(&tbptt_max_steps, sizeof(uint32_t), 1, f) != 1) goto error;
+    }
     if (fread(&activation, sizeof(NN_activation_function), 1, f) != 1) goto error;
     if (fread(&in_size,sizeof(uint32_t), 1, f) != 1) goto error;
     if (fread(&out_size, sizeof(uint32_t), 1, f) != 1) goto error;
 
     // create
-    NN_layer* layer = NN_create_rnn_layer(in_size, out_size, activation);
+    NN_layer* layer;
+    if (use_tbptt && using_tbptt) {
+        //printf("WARNING: initialising rnn layer from file with tbptt, this is normaly not recommended\n");
+        layer = NN_create_rnn_tbptt_layer(in_size, out_size, activation, tbptt_max_steps);
+    } else {
+        layer = NN_create_rnn_layer(in_size, out_size, activation);
+    }
+    
     NN_layer_rnn_params* params = layer->params;
 
     // weights input + hidden

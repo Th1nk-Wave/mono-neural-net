@@ -16,22 +16,29 @@ typedef struct {
     float** grad_weights_input;
     float** grad_weights_hidden;
     float* grad_bias;
-    float* grad_hidden_state; // used for truncated BPTT
+    float* grad_hidden_state;
 } NN_layer_rnn_grads_buf;
 
 void NN_rnn_forward(NN_layer* layer, const float* input);
+void NN_rnn_forward_tbptt(NN_layer* layer, const float* input);
+
 void NN_rnn_randomise(NN_layer* layer, float min, float max);
 
 void NN_rnn_backward(NN_training_layer* layer, const float* input, const float* delta_next, float* delta_out);
+void NN_rnn_backward_tbptt(NN_training_layer* layer, const float* input, const float* delta_next, float* delta_out);
+
 void NN_rnn_apply(NN_training_layer* layer, unsigned int batch_size);
 
+
+
 NN_API NN_layer* NN_create_rnn_layer(unsigned int n_in, unsigned int n_out, NN_activation_function activation);
+NN_API NN_layer* NN_create_rnn_tbptt_layer(unsigned int n_in, unsigned int n_out, NN_activation_function activation, unsigned int truncation_steps);
 void NN_clean_up_rnn_layer(NN_layer* layer);
 
 void NN_set_rnn_training_layer(NN_training_layer* layer, NN_learning_settings* settings);
 void NN_clean_up_rnn_training_layer(NN_training_layer* layer);
 
 NN_API int NN_rnn_save_to_file(NN_layer* layer, FILE* f);
-NN_API NN_layer* NN_rnn_init_from_file(FILE* f);
+NN_API NN_layer* NN_rnn_init_from_file(FILE* f, bool use_tbptt);
 
 #endif

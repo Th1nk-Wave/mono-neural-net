@@ -44,7 +44,7 @@ target_compile_options(mono_neural_net PRIVATE
 
 if (NN_BUILD_TEST)
     add_executable(mono_neural_net_test
-        test/main.c
+        test/rnn_test.c
     )
 
     target_link_libraries(mono_neural_net_test
