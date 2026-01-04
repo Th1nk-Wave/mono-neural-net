@@ -14,6 +14,17 @@
 #define LERELU_FACTOR 0.1
 
 
+#if defined _WIN32 || defined __CYGWIN__
+  #ifdef NN_BUILDING_LIBRARY
+    #define NN_API __declspec(dllexport)
+  #else
+    #define NN_API __declspec(dllimport)
+  #endif
+#else
+  #define NN_API __attribute__((visibility("default")))
+#endif
+
+
 
 typedef enum {
     AUTO,
@@ -140,40 +151,40 @@ typedef struct {
 
 
 // init functions
-NN_network* NN_network_init(NN_layer** layers,
+NN_API NN_network* NN_network_init(NN_layer** layers,
                             unsigned int n_layers);
-NN_network* NN_network_init_from_file(char* filepath);
-NN_trainer* NN_trainer_init(NN_processor* processor, NN_learning_settings* learning_settings);
-NN_processor* NN_processor_init(NN_network* network, NN_use_settings* settings, char* device_name);
-NN_layer* NN_layer_init(unsigned int n_in, unsigned int n_out, NN_activation_function activation);
-NN_training_layer* NN_training_layer_init(NN_layer* base, NN_learning_settings* learning_settings);
+NN_API NN_network* NN_network_init_from_file(char* filepath);
+NN_API NN_trainer* NN_trainer_init(NN_processor* processor, NN_learning_settings* learning_settings);
+NN_API NN_processor* NN_processor_init(NN_network* network, NN_use_settings* settings, char* device_name);
+NN_API NN_layer* NN_layer_init(unsigned int n_in, unsigned int n_out, NN_activation_function activation);
+NN_API NN_training_layer* NN_training_layer_init(NN_layer* base, NN_learning_settings* learning_settings);
 
 // free functions
-void NN_network_free(NN_network* network);
-void NN_trainer_free(NN_trainer* trainer);
-void NN_processor_free(NN_processor* processor);
-void NN_layer_free(NN_layer* layer);
+NN_API void NN_network_free(NN_network* network);
+NN_API void NN_trainer_free(NN_trainer* trainer);
+NN_API void NN_processor_free(NN_processor* processor);
+NN_API void NN_layer_free(NN_layer* layer);
 
 // use functions
-void NN_trainer_train(NN_trainer* trainer, float* in, float* desired_out);
-void NN_trainer_accumulate(NN_trainer *trainer, float *input, float *target);
-void NN_trainer_apply(NN_trainer *trainer, unsigned int batch_size);
-void NN_processor_process(NN_processor* processor, float* in, float* out);
+NN_API void NN_trainer_train(NN_trainer* trainer, float* in, float* desired_out);
+NN_API void NN_trainer_accumulate(NN_trainer *trainer, float *input, float *target);
+NN_API void NN_trainer_apply(NN_trainer *trainer, unsigned int batch_size);
+NN_API void NN_processor_process(NN_processor* processor, float* in, float* out);
 
 // utility functions
-void NN_network_randomise_xaivier(NN_network* network, float weight_min, float weight_max);
-float NN_trainer_loss(NN_trainer* trainer, float* desired);
-NN_network* NN_network_init_from_file(char* filepath);
-int NN_network_save_to_file(NN_network* network, char* filepath);
+NN_API void NN_network_randomise_xaivier(NN_network* network, float weight_min, float weight_max);
+NN_API float NN_trainer_loss(NN_trainer* trainer, float* desired);
+NN_API NN_network* NN_network_init_from_file(char* filepath);
+NN_API int NN_network_save_to_file(NN_network* network, char* filepath);
 
 // internal
-float NN_apply_activation(NN_activation_function activation, float in);
+NN_API float NN_apply_activation(NN_activation_function activation, float in);
 
 // deriv functions
-float NN_loss_deriv(NN_loss_function loss, float out, float target);
-float NN_activation_deriv(NN_activation_function activation, float in);
+NN_API float NN_loss_deriv(NN_loss_function loss, float out, float target);
+NN_API float NN_activation_deriv(NN_activation_function activation, float in);
 
 // randomize
-void NN_network_randomise_xaivier(NN_network *net, float weight_min, float weight_max);
+NN_API void NN_network_randomise_xaivier(NN_network *net, float weight_min, float weight_max);
 
 #endif
