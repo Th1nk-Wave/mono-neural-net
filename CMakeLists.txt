@@ -1,27 +1,35 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
 project(neural_net C)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-include_directories(include/)
+option(BUILD_SHARED_LIBS "Build shared library" ON)
 
-file(GLOB PROJECT_HEADERS include/*.h)
-file(GLOB PROJECT_SOURCES src/*.c)
+add_library(neural_net
+    src/NN.c
+    src/RNG.c
+    src/fully_connected.c
+    src/recurrent.c
+)
 
-file(GLOB PROJECT_CONFIGS CMakeLists.txt
-                            Readme.md
-                            .gitattributes
-                            .gitignore
-                            .gitmodules)
+target_include_directories(neural_net
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
 
-# source groups
-source_group("headers" FILES ${PROJECT_HEADERS})
-source_group("sources" FILES ${PROJECT_SOURCES})
+target_link_libraries(neural_net
+    PUBLIC m
+)
 
+if (NN_BUILD_TEST)
+    add_executable(neural_net_test
+        test/main.c
+    )
 
-
-add_executable(${PROJECT_NAME} ${PROJECT_SOURCES} ${PROJECT_HEADERS}
-                                                  ${PROJECT_CONFIGS})
-
-
-target_link_libraries(${PROJECT_NAME} PUBLIC "m")
+    target_link_libraries(neural_net_test
+        PRIVATE neural_net
+    )
+endif()

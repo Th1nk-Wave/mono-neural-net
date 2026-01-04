@@ -1,7 +1,7 @@
 #ifndef __NN_FULLY_CONNECTED_H_
 #define __NN_FULLY_CONNECTED_H_
 
-#include "NN2.h"
+#include "NN.h"
 #include <stdio.h>
 
 // fully connected

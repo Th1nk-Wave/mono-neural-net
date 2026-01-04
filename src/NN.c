@@ -1,7 +1,5 @@
-#include "NN2.h"
+#include "NN.h"
 #include "RNG.h"
-#include "layers/recurrent.h"
-#include <errno.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -33,7 +31,7 @@ size_t malloc_size(const void *p) {
 #endif
 #endif
 
-
+#include "layers/recurrent.h"
 #include "layers/fully_connected.h"
 
 

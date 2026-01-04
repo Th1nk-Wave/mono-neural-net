@@ -1,5 +1,5 @@
 #include "layers/recurrent.h"
-#include "NN2.h"
+#include "NN.h"
 #include "RNG.h"
 #include <errno.h>
 #include <stdio.h>
