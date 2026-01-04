@@ -1,5 +1,5 @@
 #include "layers/fully_connected.h"
-#include "NN2.h"
+#include "NN.h"
 #include "RNG.h"
 #include <math.h>
 #include <stdint.h>

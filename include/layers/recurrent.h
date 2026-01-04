@@ -1,7 +1,7 @@
 #ifndef __NN_RECURRENT_H_
 #define __NN_RECURRENT_H_
 
-#include "NN2.h"
+#include "NN.h"
 #include <stdio.h>
 
 // RNN parameters
@@ -25,13 +25,13 @@ void NN_rnn_randomise(NN_layer* layer, float min, float max);
 void NN_rnn_backward(NN_training_layer* layer, const float* input, const float* delta_next, float* delta_out);
 void NN_rnn_apply(NN_training_layer* layer, unsigned int batch_size);
 
-NN_layer* NN_create_rnn_layer(unsigned int n_in, unsigned int n_out, NN_activation_function activation);
+NN_API NN_layer* NN_create_rnn_layer(unsigned int n_in, unsigned int n_out, NN_activation_function activation);
 void NN_clean_up_rnn_layer(NN_layer* layer);
 
 void NN_set_rnn_training_layer(NN_training_layer* layer, NN_learning_settings* settings);
 void NN_clean_up_rnn_training_layer(NN_training_layer* layer);
 
-int NN_rnn_save_to_file(NN_layer* layer, FILE* f);
-NN_layer* NN_rnn_init_from_file(FILE* f);
+NN_API int NN_rnn_save_to_file(NN_layer* layer, FILE* f);
+NN_API NN_layer* NN_rnn_init_from_file(FILE* f);
 
 #endif

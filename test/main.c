@@ -1,6 +1,6 @@
 #include "layers/fully_connected.h"
 #include "layers/recurrent.h"
-#include "NN2.h"
+#include "NN.h"
 
 
 #include <math.h>
