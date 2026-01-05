@@ -200,7 +200,4 @@ NN_API float NN_apply_activation(NN_activation_function activation, float in);
 NN_API float NN_loss_deriv(NN_loss_function loss, float out, float target);
 NN_API float NN_activation_deriv(NN_activation_function activation, float in);
 
-// randomize
-NN_API void NN_network_randomise_xaivier(NN_network *net, float weight_min, float weight_max);
-
 #endif
