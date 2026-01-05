@@ -167,7 +167,7 @@ NN_layer* NN_create_fully_connected_layer(unsigned int n_in, unsigned int n_out,
 }
 void NN_clean_up_fully_connected_layer(NN_layer *layer) {
     NN_layer_fully_connected_params* params = (NN_layer_fully_connected_params*)layer->params;
-    for (unsigned int i = 0; i < layer->in_size; i++) {
+    for (unsigned int i = 0; i < layer->out_size; i++) {
         free(params->weights[i]);
     }
     free(params->weights);

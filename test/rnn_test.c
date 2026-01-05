@@ -13,7 +13,7 @@
 
 #define layers_N 4
 #define in_param 1
-#define hidden_param 1
+#define hidden_param 10
 #define out_param 1
 
 #define TBPTT_STEPS 4
@@ -71,7 +71,7 @@ void main() {
 
     unsigned int epoch = 0;
     float loss = 0;
-    for (unsigned int epoch = 0; epoch < 30000; epoch++) {
+    for (unsigned int epoch = 0; epoch < 300; epoch++) {
         loss = 0.0f;
 
         
@@ -124,10 +124,14 @@ void main() {
 
     // clean up
     NN_trainer_free(trainer);
+    printf("freeing...\n");
     NN_processor_free(processor);
+    printf("freeing...\n");
     NN_network_free(network);
+    printf("freeing...\n");
 
     free(learning_settings);
     free(use_settings);
+    printf("done..\n");
 }
 
