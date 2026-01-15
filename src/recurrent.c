@@ -252,6 +252,7 @@ void NN_rnn_tbptt_free(NN_layer* layer) {
 // creation
 NN_layer* NN_create_rnn_layer(unsigned int n_in, unsigned int n_out, NN_activation_function activation) {
     NN_layer* layer = NN_layer_init(n_in, n_out, activation);
+    layer->use_tbptt = false;
 
     NN_layer_rnn_params* params = (NN_layer_rnn_params*)malloc(sizeof(NN_layer_rnn_params));
     params->bias = calloc(n_out, sizeof(float));
