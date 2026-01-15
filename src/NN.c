@@ -364,7 +364,10 @@ error:
 
 NN_network* NN_network_init_from_file(char *filepath, bool rnn_use_tbptt) {
     FILE *f = fopen(filepath, "rb");
-    if (!f) return 0; // no file
+    if (!f) {
+        fprintf(stderr, "tried to init from file that does not exist \"%s\"\n",filepath);
+        return 0; // no file
+    }
 
     uint16_t version;
     uint16_t n_layers;
